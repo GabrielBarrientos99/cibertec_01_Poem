@@ -9,6 +9,5 @@ urlpatterns = [
      path('saved_poems/', views.saved_poems, name='saved_poems'),
     path('analyze_poem/', views.analyze_poem, name='analyze_poem'),
     path('delete_poem/<int:poem_id>/', views.delete_poem, name='delete_poem'),
-   
-
+    path('create_poem/', views.create_poem, name='create_poem'),
 ]

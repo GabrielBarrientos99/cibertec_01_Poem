@@ -108,3 +108,37 @@ def delete_poem(request, poem_id):
         poem.delete()
         return redirect('saved_poems')
     return render(request, 'saved_poems.html', {'poems': Poem.objects.all()})
+
+def create_poem(request):
+    recommended_phrases = None
+    next_word_suggestions = None
+    last_noun = None
+    current_text = None
+    error_message = None  # Nueva línea para inicializar error_message
+    if request.method == 'POST':
+        current_text = request.POST.get('current_text')
+        if current_text:
+            data_path = os.path.join(settings.BASE_DIR, 'recommender', 'data', 'dataPoemasTokenized.csv')
+
+            if not os.path.exists(data_path):
+                file_id = '1Jbf5WIkgtAxl65fnCxDIz2uNgyv6NLZP'
+                url = f'https://drive.google.com/uc?export=download&id={file_id}'
+                gdown.download(url, data_path, quiet=False)
+
+            data = pd.read_csv(data_path)
+            recommender = PoemRecommender(data)
+            frase_and_next_word, last_noun = recommender.recommend_continuation(current_text, top_n=3)
+            recommended_phrases = frase_and_next_word.get('frases', [])
+            next_word_suggestions = frase_and_next_word.get('palabra_siguiente', '')
+            if not recommended_phrases:
+                error_message = 'No se encontró frase'  # Este contiene el mensaje de error si no se encontró frase
+        else:
+            error_message = 'No se encontró sustantivo en el texto actual'  # Nueva línea para establecer el mensaje de error
+            
+    return render(request, 'create_poem.html', {
+        'recommended_phrases': recommended_phrases,
+        'next_word_suggestions': next_word_suggestions,
+        'last_noun': last_noun,
+        'current_text': current_text,
+        'error_message': error_message  # Nueva línea para pasar el mensaje de error a la plantilla
+    })

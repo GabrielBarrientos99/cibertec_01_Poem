@@ -9,6 +9,7 @@ nltk.download('wordnet')
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from textblob import TextBlob, Word
+import re
 
 class PoemRecommender:
 
@@ -58,20 +59,109 @@ class PoemRecommender:
         return ' '.join(lemmatized_tokens)
 
     def recommend_poems(self, theme, top_n=3):
-        # Preprocess the theme and expand with synonyms
+        # Preprocesa el tema y expande con sinonimos
         expanded_theme = self.get_synonyms_tokenized(theme)
         processed_theme = self.preprocess_text(expanded_theme)
         
-        # Transform the processed theme
+        # Transforma el tema procesado
         theme_count = self.count_vectorizer.transform([processed_theme])
         
-        # Calculate cosine similarities between the theme and all poems
+        # Calcula las similitudes coseno entre el tema y todos los poemas
         cosine_similarities = cosine_similarity(theme_count, self.poems_count_matrix).flatten()
         
-        # Get the indices of the top_n most similar poems
+        # Obtiene los indices de los top_n poemas más similares
         top_poem_indices = cosine_similarities.argsort()[-top_n:][::-1]
         
-        # Select the recommended poems using the obtained indices
+        # Selecciona los poemas recomendados
         recommended_poems = self.poems_dataset.iloc[top_poem_indices]
         
         return recommended_poems
+    
+    def recommend_continuation(self, current_text, top_n=1):
+        # Preprocesa el texto actual
+        processed_text = self.preprocess_text(current_text)
+        
+        # Transforma el texto procesado
+        text_count = self.count_vectorizer.transform([processed_text])
+        
+        # Calcula las similitudes coseno entre el texto y todos los poemas
+        cosine_similarities = cosine_similarity(text_count, self.poems_count_matrix).flatten()
+        
+        # Obtiene el índice de los top_n poemas más similares
+        top_poem_indices = cosine_similarities.argsort()[-14:][::-1]
+        
+        # Lista de palabras vacías que queremos omitir
+        stopwords = {'in', 'the', 'at', 'and', 'a', 'of', 'to', 'as', 'both', 'not', 'be', 'but', 'or', 'on', 'for', 'with', 'by', 'is', 'was', 'were', 'that', 'this', 'an', 'it'}
+
+        # Función para encontrar la última palabra significativa (no stopword)
+        def find_last_significant_word(text):
+            text_blob = TextBlob(text)
+            for word in text_blob.words[::-1]:
+                if word.lower() not in stopwords:
+                    return word
+            return None
+
+        last_noun = find_last_significant_word(current_text)
+        
+        if last_noun:
+            # Extrae la posible continuación de cada poema
+            recommended_phrases = []
+            next_word = []
+            for poem in self.poems_dataset.iloc[top_poem_indices]['poema']:
+                sentences = TextBlob(poem).sentences
+                for sentence in sentences:
+                    if last_noun in sentence.words:
+                        recommended_phrases.append(sentence)
+                        # Si la palabra es la última de la frase se agrega el '.'
+                        if last_noun == sentence.words[-1]:
+                            next_word.append('.')
+                        else:
+                            next_word.append(sentence.words[sentence.words.index(last_noun) + 1])
+                        
+            # Si se encontraron frases recomendadas
+            if recommended_phrases:
+                # Obtener las frecuencias de las palabras siguientes
+                freq = {}
+                for word in next_word:
+                    if word in freq:
+                        freq[word] += 1
+                    else:
+                        freq[word] = 1                
+                # Obtengo la palabra siguiente más frecuente
+                next_word_suggestions = max(freq, key=freq.get)
+
+                # Busco las frases que contengan la palabra siguiente más frecuente
+                highlighted_phrases = []
+                for phrase, word in zip(recommended_phrases, next_word):
+                    if word == next_word_suggestions:
+                        # Resalta el último sustantivo y la palabra siguiente en la frase
+                        highlighted_phrase = re.sub(r'\b' + re.escape(last_noun) + r'\b', f"<span class='highlight-noun'>{last_noun}</span>", str(phrase))
+                        highlighted_phrase = re.sub(r'\b' + re.escape(word) + r'\b', f"<span class='highlight-next'>{word}</span>", highlighted_phrase)
+                        highlighted_phrases.append(highlighted_phrase)
+
+                # Creo un diccionario con las frases y las palabras siguientes
+                frase_and_next_word = {
+                    'frases': highlighted_phrases,
+                    'palabra_siguiente': next_word_suggestions
+                }
+
+                # Retorno el diccionario y el last noun
+                return frase_and_next_word, last_noun
+
+            else:
+                # quitamos todas las ocurrencias de last_noun del texto actual
+                current_text = ' '.join([word for word in current_text.split() if word.lower() != last_noun.lower()])
+                # encontramos la última palabra significativa
+                last_noun = find_last_significant_word(current_text)
+                # si encontramos un last_noun
+                if last_noun:
+                    # llamamos recursivamente a la función
+                    return self.recommend_continuation(current_text, top_n)
+                else:
+                    return {}, 'No se encontró frase'
+        else:
+            return {}, 'No se encontró sustantivo en el texto actual'
+
+
+
+
