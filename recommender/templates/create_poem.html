@@ -4,25 +4,38 @@
 <div class="container mx-auto p-8">
   <div class="bg-black text-white p-6 rounded-lg shadow-md">
     <h1 class="text-3xl font-bold mb-4 text-center">Generación de Continuaciones de Poemas</h1>
-    <form id="text-form" method="post">
+    <form id="text-form" method="post" class="flex space-x-4">
       {% csrf_token %}
-      <div class="mb-4">
+      <div class="w-1/2">
         <label for="text-input" class="block text-lg font-medium text-gray-300 mb-2">Escribe tu poema:</label>
-        <textarea id="text-input" name="current_text" class="w-full p-4 text-black rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600" rows="6" placeholder="Escribe aquí...">{{ current_text }}</textarea>
+        <textarea id="text-input" name="current_text" class="w-full h-full p-4 text-black rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600" rows="12" placeholder="Escribe aquí...">{{ current_text }}</textarea>
       </div>
-      <div class="text-center">
-        <button type="submit" class="bg-gray-700 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">Generar Continuaciones</button>
+      {% if translated_text %}
+      <div class="w-1/2">
+        <label for="translated-text" class="block text-lg font-medium text-gray-300 mb-2">Texto Traducido:</label>
+        <div id="translated-text" class="w-full h-full p-4 text-black bg-gray-200 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600">
+          <p>{{ translated_text }}</p>
+        </div>
       </div>
+      {% endif %}
     </form>
+    <div class="text-center mt-8">
+      <button type="submit" form="text-form" class="bg-gray-700 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 mt-4">Generar Continuaciones</button>
+    </div>
     <div id="related-phrases" class="bg-gray-800 p-4 rounded-lg mt-6">
-      <h2 class="text-2xl font-semibold text-gray-300 mb-4">Frases Sugeridas:</h2>
+      <h2 class="text-2xl font-semibold text-gray-300 mb-4">Frases y Posibles Continuaciones:</h2>
       <div id="phrases-list" class="space-y-4">
         {% if error_message %}
           <p class="text-red-500">{{ error_message }}</p>
         {% elif recommended_phrases %}
-          {% for phrase in recommended_phrases %}
-            <div class="p-2 border border-gray-600 rounded">
-              <p>{{ phrase|safe }}</p>
+          {% for phrase, continuation in recommended_phrases %}
+            <div class="flex space-x-4 p-2 border border-gray-600 rounded">
+              <div class="w-1/2">
+                <p><strong>Frase:</strong> {{ phrase|safe }}</p>
+              </div>
+              <div class="w-1/2">
+                <p><strong>Posible Continuación:</strong> {{ continuation|safe }}</p>
+              </div>
             </div>
           {% endfor %}
         {% else %}

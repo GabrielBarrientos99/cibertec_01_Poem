@@ -6,6 +6,8 @@ import os
 import gdown
 import pandas as pd
 from textblob import TextBlob
+from googletrans import Translator
+import re
 
 def index(request):
     recommendations = None
@@ -110,14 +112,24 @@ def delete_poem(request, poem_id):
     return render(request, 'saved_poems.html', {'poems': Poem.objects.all()})
 
 def create_poem(request):
-    recommended_phrases = None
+    recommended_phrases = []
     next_word_suggestions = None
     last_noun = None
     current_text = None
+    translated_text = None
     error_message = None  # Nueva línea para inicializar error_message
+    recommended_continuations = []  # Inicializar recommended_continuations
+    
     if request.method == 'POST':
         current_text = request.POST.get('current_text')
         if current_text:
+            # Lógica de traducción
+            translator = Translator()
+            try:
+                translated_text = translator.translate(current_text, src='en', dest='es').text
+            except Exception as e:
+                translated_text = f'Error en la traducción: {e}'
+            
             data_path = os.path.join(settings.BASE_DIR, 'recommender', 'data', 'dataPoemasTokenized.csv')
 
             if not os.path.exists(data_path):
@@ -130,15 +142,26 @@ def create_poem(request):
             frase_and_next_word, last_noun = recommender.recommend_continuation(current_text, top_n=3)
             recommended_phrases = frase_and_next_word.get('frases', [])
             next_word_suggestions = frase_and_next_word.get('palabra_siguiente', '')
+
+            # Obtener continuación de las frases recomendadas
+            for phrase in recommended_phrases:
+                continuation_match = re.search(r'\b' + re.escape(next_word_suggestions) + r'\b(.*?)(,|$)', phrase)
+                if continuation_match:
+                    continuation = next_word_suggestions + continuation_match.group(1).strip()
+                else:
+                    continuation = next_word_suggestions
+                recommended_continuations.append((phrase, continuation))
+
             if not recommended_phrases:
                 error_message = 'No se encontró frase'  # Este contiene el mensaje de error si no se encontró frase
         else:
             error_message = 'No se encontró sustantivo en el texto actual'  # Nueva línea para establecer el mensaje de error
             
     return render(request, 'create_poem.html', {
-        'recommended_phrases': recommended_phrases,
+        'recommended_phrases': recommended_continuations,
         'next_word_suggestions': next_word_suggestions,
         'last_noun': last_noun,
         'current_text': current_text,
+        'translated_text': translated_text,
         'error_message': error_message  # Nueva línea para pasar el mensaje de error a la plantilla
     })

@@ -10,6 +10,8 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from textblob import TextBlob, Word
 import re
+import warnings
+warnings.filterwarnings('ignore')
 
 class PoemRecommender:
 
@@ -88,10 +90,10 @@ class PoemRecommender:
         cosine_similarities = cosine_similarity(text_count, self.poems_count_matrix).flatten()
         
         # Obtiene el índice de los top_n poemas más similares
-        top_poem_indices = cosine_similarities.argsort()[-14:][::-1]
+        top_poem_indices = cosine_similarities.argsort()[-5:][::-1]
         
         # Lista de palabras vacías que queremos omitir
-        stopwords = {'in', 'the', 'at', 'and', 'a', 'of', 'to', 'as', 'both', 'not', 'be', 'but', 'or', 'on', 'for', 'with', 'by', 'is', 'was', 'were', 'that', 'this', 'an', 'it'}
+        stopwords = {'in', 'the', 'at', 'and', 'a', 'of', 'to', 'as', 'both', 'not', 'be', 'but', 'or', 'on', 'for', 'with', 'by', 'is', 'was', 'were', 'that', 'this', 'an', 'it','my'}
 
         # Función para encontrar la última palabra significativa (no stopword)
         def find_last_significant_word(text):
@@ -117,6 +119,8 @@ class PoemRecommender:
                             next_word.append('.')
                         else:
                             next_word.append(sentence.words[sentence.words.index(last_noun) + 1])
+                       
+
                         
             # Si se encontraron frases recomendadas
             if recommended_phrases:
@@ -149,13 +153,16 @@ class PoemRecommender:
                 return frase_and_next_word, last_noun
 
             else:
-                # quitamos todas las ocurrencias de last_noun del texto actual
-                current_text = ' '.join([word for word in current_text.split() if word.lower() != last_noun.lower()])
-                # encontramos la última palabra significativa
+                # Quitamos la última ocurrencia de last_noun del texto actual
+                current_text = ' '.join(current_text.rsplit(last_noun, 1))
+                # Aseguramos que el texto no esté vacío
+                if not current_text.strip():
+                    return {}, 'No se encontró frase'
+                # Encontramos la última palabra significativa
                 last_noun = find_last_significant_word(current_text)
-                # si encontramos un last_noun
+                # Si encontramos un last_noun
                 if last_noun:
-                    # llamamos recursivamente a la función
+                    # Llamamos recursivamente a la función
                     return self.recommend_continuation(current_text, top_n)
                 else:
                     return {}, 'No se encontró frase'
